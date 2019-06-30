@@ -155,8 +155,8 @@ namespace {
   constexpr Score WeakQueen          = S( 49, 15);
   
   // Maluses for constriction
-  constexpr int ConstrictionMg =  500;  // Malus for 100% constriction in middle game
-  constexpr int ConstrictionEg =  400;  // Malus for 100% constriction in  end   game
+  constexpr int ConstrictionMg =  300;  // Malus for 100% constriction in middle game
+  constexpr int ConstrictionEg =  300;  // Malus for 100% constriction in end game
 
 #undef S
 
