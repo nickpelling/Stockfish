@@ -153,6 +153,10 @@ namespace {
   constexpr Score ThreatBySafePawn   = S(173, 94);
   constexpr Score TrappedRook        = S( 47,  4);
   constexpr Score WeakQueen          = S( 49, 15);
+  
+  // Maluses for constriction
+  constexpr int ConstrictionMg =  500;  // Malus for 100% constriction in middle game
+  constexpr int ConstrictionEg =  400;  // Malus for 100% constriction in  end   game
 
 #undef S
 
@@ -173,6 +177,7 @@ namespace {
     template<Color Us> Score threats() const;
     template<Color Us> Score passed() const;
     template<Color Us> Score space() const;
+    template<Color Us> Score constriction() const;
     ScaleFactor scale_factor(Value eg) const;
     Score initiative(Value eg) const;
 
@@ -776,7 +781,74 @@ namespace {
     return ScaleFactor(sf);
   }
 
-
+  // constriction() evaluates how badly constricted by the other side a given side's pieces are
+  template<Tracing T> template<Color Us>
+  Score Evaluation<T>::constriction() const {
+  
+    constexpr Color Them = (Us == WHITE ? BLACK : WHITE);
+    Bitboard attackedby_bb = attackedBy[Them][ALL_PIECES];
+    Bitboard allpieces_bb = pos.pieces();
+    int numFreeMoves, numAttackedMoves;
+    const Square* pl;
+    Bitboard bb;
+    Score score;
+    
+    numFreeMoves = 0;
+    numAttackedMoves = 0;
+    
+    pl = pos.squares<KNIGHT>(Us);
+    for (Square s = *pl; s != SQ_NONE; s = *++pl)
+    {
+      bb = attacks_bb<KNIGHT>(s, allpieces_bb);
+      numFreeMoves += popcount(bb);
+      numAttackedMoves += popcount(bb & attackedby_bb);
+    }
+    
+    pl = pos.squares<BISHOP>(Us);
+    for (Square s = *pl; s != SQ_NONE; s = *++pl)
+    {
+      bb = attacks_bb<BISHOP>(s, allpieces_bb);
+      numFreeMoves += popcount(bb);
+      numAttackedMoves += popcount(bb & attackedby_bb);
+    }
+    
+    pl = pos.squares<ROOK>(Us);
+    for (Square s = *pl; s != SQ_NONE; s = *++pl)
+    {
+      bb = attacks_bb<ROOK>(s, allpieces_bb);
+      numFreeMoves += popcount(bb);
+      numAttackedMoves += popcount(bb & attackedby_bb);
+    }
+    
+    pl = pos.squares<QUEEN>(Us);
+    for (Square s = *pl; s != SQ_NONE; s = *++pl)
+    {
+      bb = attacks_bb<QUEEN>(s, allpieces_bb);
+      numFreeMoves += popcount(bb);
+      numAttackedMoves += popcount(bb & attackedby_bb);
+    }    
+    
+    pl = pos.squares<KING>(Us);
+    for (Square s = *pl; s != SQ_NONE; s = *++pl)
+    {
+      bb = attacks_bb<KING>(s, allpieces_bb);
+      numFreeMoves += popcount(bb);
+      numAttackedMoves += popcount(bb & attackedby_bb);
+    }
+    
+    if (0 == numFreeMoves)
+    {
+      numFreeMoves = numAttackedMoves = 200;  // adjust so that 100% of move squares are attacked
+    }
+    
+    int constrictionFraction = (numAttackedMoves << 16) / numFreeMoves;
+    int mgScore = (constrictionFraction * ConstrictionMg) >> 16;
+    int egScore = (constrictionFraction * ConstrictionEg) >> 16;
+    score = make_score(mgScore,egScore);
+    
+    return score;
+  }
+  
   // Evaluation::value() is the main function of the class. It computes the various
   // parts of the evaluation and returns the value of the position from the point
   // of view of the side to move.
@@ -820,6 +892,8 @@ namespace {
             + pieces<WHITE, QUEEN >() - pieces<BLACK, QUEEN >();
 
     score += mobility[WHITE] - mobility[BLACK];
+    
+    score += constriction<BLACK>() - constriction<WHITE>();
 
     score +=  king<   WHITE>() - king<   BLACK>()
             + threats<WHITE>() - threats<BLACK>()
