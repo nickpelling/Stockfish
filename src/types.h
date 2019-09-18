@@ -253,27 +253,20 @@ enum Rank : int {
 };
 
 
-/// Score enum stores a middlegame and an endgame value in a single integer (enum).
-/// The least significant 16 bits are used to store the middlegame value and the
-/// upper 16 bits are used to store the endgame value. We have to take care to
-/// avoid left-shifting a signed int to avoid undefined behavior.
-enum Score : int { SCORE_ZERO };
+typedef int32_t Score __attribute__ ((vector_size (sizeof(int32_t) * 2)));
 
-constexpr Score make_score(int mg, int eg) {
-  return Score((int)((unsigned int)eg << 16) + mg);
+inline constexpr Score make_score(int mg, int eg) {
+  return (Score) { (int32_t) eg, (int32_t) mg };
 }
 
-/// Extracting the signed lower and upper 16 bits is not so trivial because
-/// according to the standard a simple cast to short is implementation defined
-/// and so is a right shift of a signed integer.
-inline Value eg_value(Score s) {
-  union { uint16_t u; int16_t s; } eg = { uint16_t(unsigned(s + 0x8000) >> 16) };
-  return Value(eg.s);
+#define SCORE_ZERO  make_score(0,0)
+
+inline constexpr Value eg_value(Score s) {
+  return (Value) s[0];
 }
 
-inline Value mg_value(Score s) {
-  union { uint16_t u; int16_t s; } mg = { uint16_t(unsigned(s)) };
-  return Value(mg.s);
+inline constexpr Value mg_value(Score s) {
+  return (Value) s[1];
 }
 
 #define ENABLE_BASE_OPERATORS_ON(T)                                \
@@ -306,7 +299,7 @@ ENABLE_INCR_OPERATORS_ON(Square)
 ENABLE_INCR_OPERATORS_ON(File)
 ENABLE_INCR_OPERATORS_ON(Rank)
 
-ENABLE_BASE_OPERATORS_ON(Score)
+//ENABLE_BASE_OPERATORS_ON(Score)
 
 #undef ENABLE_FULL_OPERATORS_ON
 #undef ENABLE_INCR_OPERATORS_ON
@@ -324,6 +317,7 @@ constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d
 inline Square& operator+=(Square& s, Direction d) { return s = s + d; }
 inline Square& operator-=(Square& s, Direction d) { return s = s - d; }
 
+#if 0
 /// Only declared but not defined. We don't want to multiply two scores due to
 /// a very high risk of overflow. So user should explicitly convert to integer.
 Score operator*(Score, Score) = delete;
@@ -332,7 +326,9 @@ Score operator*(Score, Score) = delete;
 inline Score operator/(Score s, int i) {
   return make_score(mg_value(s) / i, eg_value(s) / i);
 }
+#endif
 
+#if 0
 /// Multiplication of a Score by an integer. We check for overflow in debug mode.
 inline Score operator*(Score s, int i) {
 
@@ -349,6 +345,7 @@ inline Score operator*(Score s, int i) {
 inline Score operator*(Score s, bool b) {
   return Score(int(s) * int(b));
 }
+#endif
 
 constexpr Color operator~(Color c) {
   return Color(c ^ BLACK); // Toggle color
