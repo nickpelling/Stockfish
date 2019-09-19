@@ -252,11 +252,10 @@ enum Rank : int {
   RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_NB
 };
 
-
-typedef int32_t Score __attribute__ ((vector_size (sizeof(int32_t) * 2)));
+typedef int32_t Score __attribute__ ((vector_size (sizeof(int32_t) * 4)));
 
 inline constexpr Score make_score(int mg, int eg) {
-  return (Score) { (int32_t) eg, (int32_t) mg };
+  return (Score) { (int32_t) eg, (int32_t) mg, 0, 0 };
 }
 
 #define SCORE_ZERO  make_score(0,0)
@@ -299,8 +298,6 @@ ENABLE_INCR_OPERATORS_ON(Square)
 ENABLE_INCR_OPERATORS_ON(File)
 ENABLE_INCR_OPERATORS_ON(Rank)
 
-//ENABLE_BASE_OPERATORS_ON(Score)
-
 #undef ENABLE_FULL_OPERATORS_ON
 #undef ENABLE_INCR_OPERATORS_ON
 #undef ENABLE_BASE_OPERATORS_ON
@@ -316,36 +313,6 @@ constexpr Square operator+(Square s, Direction d) { return Square(int(s) + int(d
 constexpr Square operator-(Square s, Direction d) { return Square(int(s) - int(d)); }
 inline Square& operator+=(Square& s, Direction d) { return s = s + d; }
 inline Square& operator-=(Square& s, Direction d) { return s = s - d; }
-
-#if 0
-/// Only declared but not defined. We don't want to multiply two scores due to
-/// a very high risk of overflow. So user should explicitly convert to integer.
-Score operator*(Score, Score) = delete;
-
-/// Division of a Score must be handled separately for each term
-inline Score operator/(Score s, int i) {
-  return make_score(mg_value(s) / i, eg_value(s) / i);
-}
-#endif
-
-#if 0
-/// Multiplication of a Score by an integer. We check for overflow in debug mode.
-inline Score operator*(Score s, int i) {
-
-  Score result = Score(int(s) * i);
-
-  assert(eg_value(result) == (i * eg_value(s)));
-  assert(mg_value(result) == (i * mg_value(s)));
-  assert((i == 0) || (result / i) == s);
-
-  return result;
-}
-
-/// Multiplication of a Score by an boolean
-inline Score operator*(Score s, bool b) {
-  return Score(int(s) * int(b));
-}
-#endif
 
 constexpr Color operator~(Color c) {
   return Color(c ^ BLACK); // Toggle color
