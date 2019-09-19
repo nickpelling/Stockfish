@@ -266,15 +266,29 @@ constexpr Score make_score(int mg, int eg) {
 /// Extracting the signed lower and upper 16 bits is not so trivial because
 /// according to the standard a simple cast to short is implementation defined
 /// and so is a right shift of a signed integer.
+
+#if (-1 >> 1) == 0    // Use defensive implementation if target uses tricky right-shifts
+
 inline Value eg_value(Score s) {
   union { uint16_t u; int16_t s; } eg = { uint16_t(unsigned(s + 0x8000) >> 16) };
   return Value(eg.s);
 }
-
 inline Value mg_value(Score s) {
   union { uint16_t u; int16_t s; } mg = { uint16_t(unsigned(s)) };
   return Value(mg.s);
 }
+
+#else                 // Else use conventional modern C code
+
+constexpr Value eg_value(Score s) {
+  return Value( (s + 0x8000) >> 16 );
+}
+constexpr Value mg_value(Score s) {
+  return Value( int16_t( s ) );
+}
+
+#endif
+
 
 #define ENABLE_BASE_OPERATORS_ON(T)                                \
 constexpr T operator+(T d1, T d2) { return T(int(d1) + int(d2)); } \
