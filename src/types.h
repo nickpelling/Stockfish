@@ -248,6 +248,10 @@ enum File : int {
   FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H, FILE_NB
 };
 
+enum HalfFile : int {
+  HALFFILE_AH, HALFFILE_BG, HALFFILE_CF, HALFFILE_DE, HALFFILE_NB
+};
+
 enum Rank : int {
   RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_NB
 };
@@ -358,8 +362,9 @@ constexpr Square operator~(Square s) {
   return Square(s ^ SQ_A8); // Vertical flip SQ_A1 -> SQ_A8
 }
 
-constexpr File operator~(File f) {
-  return File(f ^ FILE_H); // Horizontal flip FILE_A -> FILE_H
+constexpr HalfFile make_halffile(File f)
+{
+  return HalfFile( f < (f ^ FILE_H) ? f : (f ^ FILE_H) );
 }
 
 constexpr Piece operator~(Piece pc) {

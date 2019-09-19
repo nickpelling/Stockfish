@@ -35,7 +35,7 @@ namespace PSQT {
 // type on a given square a (middlegame, endgame) score pair is assigned. Table
 // is defined for files A..D and white side: it is symmetric for black side and
 // second half of the files.
-constexpr Score Bonus[][RANK_NB][int(FILE_NB) / 2] = {
+constexpr Score Bonus[][RANK_NB][HALFFILE_NB] = {
   { },
   { },
   { // Knight
@@ -119,9 +119,9 @@ void init() {
 
       for (Square s = SQ_A1; s <= SQ_H8; ++s)
       {
-          File f = std::min(file_of(s), ~file_of(s));
+          HalfFile h = make_halffile( file_of(s) );
           psq[ pc][ s] = score + (type_of(pc) == PAWN ? PBonus[rank_of(s)][file_of(s)]
-                                                      : Bonus[pc][rank_of(s)][f]);
+                                                      : Bonus[pc][rank_of(s)][h]);
           psq[~pc][~s] = -psq[pc][s];
       }
   }

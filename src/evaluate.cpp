@@ -136,7 +136,10 @@ namespace {
   constexpr Score LongDiagonalBishop = S( 45,  0);
   constexpr Score MinorBehindPawn    = S( 18,  3);
   constexpr Score Outpost            = S( 18,  6);
-  constexpr Score PassedFile         = S( 11,  8);
+  constexpr Score PassedFile_ah      = S(  0,  0);
+  constexpr Score PassedFile_bg      = S( 11,  8);
+  constexpr Score PassedFile_cf      = S( 22, 16);
+  constexpr Score PassedFile_de      = S( 33, 24);
   constexpr Score PawnlessFlank      = S( 17, 95);
   constexpr Score RestrictedPiece    = S(  7,  7);
   constexpr Score RookOnPawn         = S( 10, 32);
@@ -150,6 +153,11 @@ namespace {
   constexpr Score WeakQueen          = S( 49, 15);
 
 #undef S
+
+  constexpr Score PassedFile[8] = {
+    PassedFile_ah, PassedFile_bg, PassedFile_cf, PassedFile_de,
+    PassedFile_de, PassedFile_cf, PassedFile_bg, PassedFile_ah
+  };
 
   // Evaluation class computes and stores attacks tables and other working data
   template<Tracing T>
@@ -662,7 +670,7 @@ namespace {
             || (pos.pieces(PAWN) & (s + Up)))
             bonus = bonus / 2;
 
-        score += bonus - PassedFile * std::min(f, ~f);
+        score += bonus - PassedFile[f];
     }
 
     if (T)
