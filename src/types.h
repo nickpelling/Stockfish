@@ -252,10 +252,10 @@ enum Rank : int {
   RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8, RANK_NB
 };
 
-typedef int32_t Score __attribute__ ((vector_size (sizeof(int32_t) * 4)));
+typedef int64_t Score __attribute__ ((vector_size (sizeof(int64_t) * 2)));
 
 inline constexpr Score make_score(int mg, int eg) {
-  return (Score) { (int32_t) eg, (int32_t) mg, 0, 0 };
+  return (Score) { (int64_t) eg, (int64_t) mg };
 }
 
 #define SCORE_ZERO  make_score(0,0)
