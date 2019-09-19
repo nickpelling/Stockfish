@@ -390,8 +390,15 @@ constexpr PieceType type_of(Piece pc) {
   return PieceType(pc & 7);
 }
 
-inline Color color_of(Piece pc) {
+#ifdef NDEBUG
+constexpr
+#else
+inline
+#endif
+ Color color_of(Piece pc) {
+#ifndef NDEBUG
   assert(pc != NO_PIECE);
+#endif
   return Color(pc >> 3);
 }
 
