@@ -212,14 +212,20 @@ Score Entry::evaluate_shelter(const Position& pos, Square ksq) {
 
 
 /// Entry::do_king_safety() calculates a bonus for king safety. It is called only
-/// when king square changes, which is about 20% of total king_safety() calls.
+/// when our king or any pawns move, which is about 20% (?) of total king_safety() calls.
 
 template<Color Us>
 Score Entry::do_king_safety(const Position& pos) {
 
+  constexpr Color Them = (Us == WHITE ? BLACK : WHITE);
+
   Square ksq = pos.square<KING>(Us);
+  
+  // Keep a copy of the king_safety-related values
   kingSquares[Us] = ksq;
   castlingRights[Us] = pos.castling_rights(Us);
+  kingSafetyOurPawns[Us] = pos.pieces(Us, PAWN);
+  kingSafetyTheirPawns[Us] = pos.pieces(Them, PAWN);
 
   Score shelters[3] = { evaluate_shelter<Us>(pos, ksq),
                         make_score(-VALUE_INFINITE, 0),

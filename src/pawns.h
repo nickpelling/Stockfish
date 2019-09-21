@@ -41,8 +41,13 @@ struct Entry {
 
   template<Color Us>
   Score king_safety(const Position& pos) {
-    return  kingSquares[Us] == pos.square<KING>(Us) && castlingRights[Us] == pos.castling_rights(Us)
-          ? kingSafety[Us] : (kingSafety[Us] = do_king_safety<Us>(pos));
+    constexpr Color Them = (Us == WHITE ? BLACK : WHITE);
+    return kingSafetyOurPawns[Us] == pos.pieces(Us, PAWN)     // if our pawns haven't moved
+        && kingSafetyTheirPawns[Us] == pos.pieces(Them, PAWN) // and their pawns haven't moved
+        && kingSquares[Us] == pos.square<KING>(Us)            // and our king square is the same
+        && castlingRights[Us] == pos.castling_rights(Us)      // and our castling rights haven't changed
+          ? kingSafety[Us]                                    // then re-use the last king_safety value
+          : (kingSafety[Us] = do_king_safety<Us>(pos));       // else calculate a new king_safety value
   }
 
   template<Color Us>
@@ -53,6 +58,8 @@ struct Entry {
 
   Key key;
   Score scores[COLOR_NB];
+  Bitboard kingSafetyOurPawns[COLOR_NB];
+  Bitboard kingSafetyTheirPawns[COLOR_NB];
   Bitboard passedPawns[COLOR_NB];
   Bitboard pawnAttacks[COLOR_NB];
   Bitboard pawnAttacksSpan[COLOR_NB];
