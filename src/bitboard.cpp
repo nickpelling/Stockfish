@@ -31,6 +31,7 @@ Bitboard SquareBB[SQUARE_NB];
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
+Bitboard SmallerDistanceMask[8][SQUARE_NB];
 
 Magic RookMagics[SQUARE_NB];
 Magic BishopMagics[SQUARE_NB];
@@ -96,6 +97,19 @@ void Bitboards::init() {
                   }
               }
 
+  for (Square s = SQ_A1; s <= SQ_H8; ++s)
+      for (int d = 0; d < 8; d++)
+      {
+        Bitboard bb = 0;
+        for (Square othersquare = SQ_A1; othersquare <= SQ_H8; ++othersquare)
+        {
+          if (distance(s, othersquare) < d)
+            bb |= othersquare;
+        }
+        SmallerDistanceMask[d][s] = bb;
+      }
+
+  
   Direction RookDirections[] = { NORTH, EAST, SOUTH, WEST };
   Direction BishopDirections[] = { NORTH_EAST, SOUTH_EAST, SOUTH_WEST, NORTH_WEST };
 
