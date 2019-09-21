@@ -240,15 +240,16 @@ Score Entry::do_king_safety(const Position& pos) {
   Bitboard pawns = pos.pieces(Us, PAWN);
   int minPawnDist;
 
-  if (pawns == 0)
+  if (pawns == 0)                           // if no pawns
      minPawnDist = 0;
-  else if (pawns & PseudoAttacks[KING][ksq])
+  else if (pawns & DistanceMask[ksq][1])    // if distance == 1
      minPawnDist = 1;
-  else while (pawns)
-     {
-       minPawnDist = distance(ksq, pop_lsb(&pawns));
-       pawns &= SmallerDistanceMask[minPawnDist][ksq];  // Only retain nearer pawns
-     }
+  else if (pawns & DistanceMask[ksq][3])    // if distance == 2 or 3
+     minPawnDist = (pawns & DistanceMask[ksq][2]) ? 2 : 3;
+  else if (pawns & DistanceMask[ksq][5])    // if distance == 4 or 5
+     minPawnDist = (pawns & DistanceMask[ksq][4]) ? 4 : 5;
+  else                                      // distance must be 6 or 7
+     minPawnDist = (pawns & DistanceMask[ksq][6]) ? 6 : 7;
 
   return shelters[0] - make_score(0, 16 * minPawnDist);
 }

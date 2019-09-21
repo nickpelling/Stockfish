@@ -31,7 +31,7 @@ Bitboard SquareBB[SQUARE_NB];
 Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
-Bitboard SmallerDistanceMask[8][SQUARE_NB];
+Bitboard DistanceMask[SQUARE_NB][8];
 
 Magic RookMagics[SQUARE_NB];
 Magic BishopMagics[SQUARE_NB];
@@ -103,10 +103,10 @@ void Bitboards::init() {
         Bitboard bb = 0;
         for (Square othersquare = SQ_A1; othersquare <= SQ_H8; ++othersquare)
         {
-          if (distance(s, othersquare) < d)
+          if (distance(s, othersquare) <= d)
             bb |= othersquare;
         }
-        SmallerDistanceMask[d][s] = bb;
+        DistanceMask[s][d] = bb;
       }
 
   

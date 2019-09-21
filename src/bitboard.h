@@ -78,7 +78,7 @@ extern Bitboard SquareBB[SQUARE_NB];
 extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 extern Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
-extern Bitboard SmallerDistanceMask[8][SQUARE_NB];
+extern Bitboard DistanceMask[SQUARE_NB][8];
 
 
 /// Magic holds all magic bitboards relevant data for a single square
