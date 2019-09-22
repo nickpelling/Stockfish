@@ -77,6 +77,7 @@ bits = 32
 prefetch = no
 popcnt = no
 sse = no
+sse4 = no
 pext = no
 
 ### 2.2 Architecture specific
@@ -93,6 +94,7 @@ ifeq ($(ARCH),x86-32)
 	arch = i386
 	prefetch = yes
 	sse = yes
+	sse4 = no
 endif
 
 ifeq ($(ARCH),general-64)
@@ -104,7 +106,9 @@ ifeq ($(ARCH),x86-64)
 	arch = x86_64
 	bits = 64
 	prefetch = yes
+	popcnt = yes
 	sse = yes
+	sse4 = no
 endif
 
 ifeq ($(ARCH),x86-64-modern)
@@ -115,12 +119,22 @@ ifeq ($(ARCH),x86-64-modern)
 	sse = yes
 endif
 
+ifeq ($(ARCH),x86-64-sse4)
+	arch = x86_64
+	bits = 64
+	prefetch = yes
+	popcnt = yes
+	sse = yes
+	sse4 = yes
+endif
+
 ifeq ($(ARCH),x86-64-bmi2)
 	arch = x86_64
 	bits = 64
 	prefetch = yes
 	popcnt = yes
 	sse = yes
+	sse4 = yes
 	pext = yes
 endif
 
@@ -324,11 +338,19 @@ ifeq ($(popcnt),yes)
 	endif
 endif
 
+### 3.6.2 sse4
+ifeq ($(sse4),yes)
+	CXXFLAGS += -DUSE_SSE4
+	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
+		CXXFLAGS += -msse4
+	endif
+endif
+
 ### 3.7 pext
 ifeq ($(pext),yes)
 	CXXFLAGS += -DUSE_PEXT
 	ifeq ($(comp),$(filter $(comp),gcc clang mingw))
-		CXXFLAGS += -msse4 -mbmi2
+		CXXFLAGS += -mbmi2
 	endif
 endif
 

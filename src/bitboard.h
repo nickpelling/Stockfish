@@ -248,8 +248,8 @@ inline Bitboard pawn_attack_span(Color c, Square s) {
 /// passed_pawn_span() returns a bitboard which can be used to test if a pawn of
 /// the given color and on the given square (intersecting file & rank bitboards) is a passed pawn.
 
-inline Bitboard passed_pawn_span(Color c, Bitboard Square_file_bb, Bitboard Square_rank_bb) {
-  return forward_ranks_bb(c, Square_rank_bb) & (adjacent_files_bb(Square_file_bb) | Square_file_bb);
+inline Bitboard passed_pawn_span(Color c, Bitboard square_file_bb, Bitboard square_rank_bb) {
+  return forward_ranks_bb(c, square_rank_bb) & (adjacent_files_bb(square_file_bb) | square_file_bb);
 }
 
 /// passed_pawn_span() returns a bitboard which can be used to test if a pawn of

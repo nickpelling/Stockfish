@@ -65,9 +65,15 @@ namespace {
   #undef S
   #undef V
 
+template<Color C>
+constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
+  return C == WHITE ? shift<NORTH_WEST>(b) & shift<NORTH_EAST>(b)
+                    : shift<SOUTH_WEST>(b) & shift<SOUTH_EAST>(b);
+}
+
     template<Color Us>
-  inline Score evaluate_pawn( Bitboard Square_file_bb,
-                              Bitboard Square_rank_bb,
+  inline Score evaluate_pawn( Bitboard square_file_bb,
+                              Bitboard square_rank_bb,
                               int connected_scale_factor,
                               int rank_scale_factor,
                               Bitboard ourPawns,
@@ -82,74 +88,74 @@ namespace {
     constexpr Direction Down = (Us == WHITE ? SOUTH : NORTH);
     constexpr Bitboard  FarSideBB = (Us == WHITE) ? (RANK_5 | RANK_6 | RANK_7 | RANK_8)
                                                   : (RANK_1 | RANK_2 | RANK_3 | RANK_4);
-
-    int passed_is_true;
     
-    Bitboard Square_bb  = Square_file_bb & Square_rank_bb;
-    Bitboard above_bb   = shift<Up>(Square_bb);
+    Bitboard square_bb          = square_file_bb & square_rank_bb;
+    Bitboard above2_bb          = shift<Direction(NORTH+NORTH)>(square_bb);
+    Bitboard neighbour_mask_bb  = adjacent_files_bb(square_file_bb);
+    Bitboard above1_mask_bb     = shift<Up>(neighbour_mask_bb & square_rank_bb);
+    Bitboard above2_mask_bb     = shift<Up>(above1_mask_bb);
 
-    Bitboard opposed    = theirPawns & forward_file_bb(Us, Square_file_bb, Square_rank_bb);
-    Bitboard stoppers   = theirPawns & passed_pawn_span(Us, Square_file_bb, Square_rank_bb);
-    Bitboard lever      = theirPawns & adjacent_files_bb(Square_bb);
-    Bitboard leverPush  = theirPawns & adjacent_files_bb(above_bb);
-    Bitboard doubled    = ourPawns   & shift<Down>(Square_bb);
-    Bitboard neighbours = ourPawns   & adjacent_files_bb(Square_file_bb);
-    Bitboard phalanx    = neighbours & Square_rank_bb;
-    Bitboard support    = neighbours & shift<Down>(Square_rank_bb);
+    Bitboard opposed    = theirPawns & forward_file_bb( Us, square_file_bb, square_rank_bb);
+    Bitboard stoppers   = theirPawns & passed_pawn_span(Us, square_file_bb, square_rank_bb);
+    Bitboard lever      = theirPawns & above1_mask_bb;
+    Bitboard leverPush  = theirPawns & above2_mask_bb;
+    Bitboard doubled    = ourPawns   & shift<Down>(square_bb); // should this be anywhere behind, not just immediately behind?
+    Bitboard neighbours = ourPawns   & neighbour_mask_bb;
+    Bitboard phalanx    = neighbours & square_rank_bb;
+    Bitboard support    = neighbours & shift<Down>(square_rank_bb);
+    Bitboard west_bb    = support    & shift<WEST>(square_file_bb);
+    Bitboard east_bb    = support    & shift<EAST>(square_file_bb);
 
     // A pawn is backward when it is behind all pawns of the same color on
     // the adjacent files and cannot safely advance.
     // Phalanx and isolated pawns will be excluded when the pawn is scored.
-    neighbours &= forward_ranks_bb(Them, Square_rank_bb);
-    Bitboard stoppers_leverPush_above = stoppers & (leverPush | above_bb);  
-    int neighbours_iszero                   = (neighbours == 0);
-    int opposed_iszero                      = (opposed == 0);
-    int stoppers_leverPush_above_iszero  = (stoppers_leverPush_above == 0);
-    int backward_is_true = neighbours_iszero & stoppers_leverPush_above_iszero;
+    Bitboard forward_neighbours       = neighbours & forward_ranks_bb(Them, square_rank_bb);
+    Bitboard stoppers_leverPush_above = stoppers & (leverPush | above2_bb); // FIXME?!?!? is above2_bb correct here?
+    int backward_is_true = (forward_neighbours == 0) & (stoppers_leverPush_above != 0);
 
     // A pawn is passed if one of the three following conditions is true:
     // (a) there is no stoppers except some levers
-    Bitboard stoppers_xor_lever = stoppers ^ lever;
-    passed_is_true = (stoppers_xor_lever == 0);
+    int passed_is_true = ((stoppers ^ lever) == 0);
 
     // (b) the only stoppers are the leverPush, but we outnumber them
     // However, because we can't vectorize popcount(), we have to defer this
-    // to the caller's exit phase
-    Bitboard stoppers_xor_leverPush     = stoppers ^ leverPush;    
-    int stoppers_xor_leverpush_iszero   = (stoppers_xor_leverPush == 0);
+    // calculation to the caller's exit phase
+    int stoppers_xor_leverpush_iszero   = ((stoppers ^ leverPush) == 0);
     
     // (c) there is only one front stopper which can be levered.
     Bitboard theirPawns_or_doubleAttackThem = (theirPawns | doubleAttackThem);
-    passed_is_true |= (   (stoppers == above_bb)
-                       &  ((Square_rank_bb & FarSideBB) != 0)
+    passed_is_true |= (   (stoppers == above2_bb)
+                       &  ((square_rank_bb & FarSideBB) != 0)
                        &  (shift<Up>(support) & ~theirPawns_or_doubleAttackThem)   );
     
-    int support_or_phalanx_isnonzero        = ((support | phalanx) != 0);
     int support_or_phalanx_iszero           = ((support | phalanx) == 0);
+    int support_or_phalanx_isnonzero        = 1 - support_or_phalanx_iszero;
     int phalanx_iszero                      = (phalanx == 0);
-    
+    int opposed_iszero                      = (opposed == 0);
+
     int phalanx_scale = 3 - phalanx_iszero;
-    int opposed_scale = 2 - opposed_iszero;   // reversed sense, so that we can multiply
+    int opposed_scale = 2 - opposed_iszero;   // reversed sense, to avoid having to divide
     int v = connected_scale_factor * phalanx_scale * opposed_scale;
-    Bitboard west_bb  = (support & shift<WEST>(Square_file_bb));
-    v += 17 * (west_bb  != 0);
-    Bitboard east_bb = (support & shift<EAST>(Square_file_bb));
+    v += 17 * (west_bb != 0);
     v += 17 * (east_bb != 0);
       
     int isolated_score = Isolated + WeakUnopposed * opposed_iszero;
 
     int backward_score = Backward + WeakUnopposed * opposed_iszero;
-      
+
+    int lever_more_than_one = lever & (lever - 1);
+    int doubled_score = int(Doubled) * (doubled != 0) + int(WeakLever) * (lever_more_than_one != 0);
+
     // Score this pawn
     int score = v * rank_scale_factor * support_or_phalanx_isnonzero;
       
-    score -= isolated_score * support_or_phalanx_iszero * neighbours_iszero;
+    score -= isolated_score * support_or_phalanx_iszero * (neighbours == 0);
 
-    score += backward_score * support_or_phalanx_iszero * neighbours_iszero * backward_is_true;
+    score += backward_score * support_or_phalanx_iszero * (neighbours == 0) * backward_is_true;
 
-    
+    score -= doubled_score * (support == 0);
 
-    passedResult    = Square_bb * passed_is_true;
+    passedResult    = square_bb * passed_is_true;
     phalanxResult   = phalanx   * stoppers_xor_leverpush_iszero;
     leverPushResult = leverPush * stoppers_xor_leverpush_iszero;
     return Score(score);
