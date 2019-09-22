@@ -68,6 +68,8 @@ namespace {
     template<Color Us>
   inline Score evaluate_pawn( Bitboard Square_file_bb,
                               Bitboard Square_rank_bb,
+                              int connected_scale_factor,
+                              int rank_scale_factor,
                               Bitboard ourPawns,
                               Bitboard theirPawns,
                               Bitboard doubleAttackThem,
@@ -104,7 +106,6 @@ namespace {
     int opposed_iszero                      = (opposed == 0);
     int stoppers_leverPush_above_iszero  = (stoppers_leverPush_above == 0);
     int backward_is_true = neighbours_iszero & stoppers_leverPush_above_iszero;
-    int backward_score = Backward + WeakUnopposed * opposed_iszero;
 
     // A pawn is passed if one of the three following conditions is true:
     // (a) there is no stoppers except some levers
@@ -123,11 +124,30 @@ namespace {
                        &  ((Square_rank_bb & FarSideBB) != 0)
                        &  (shift<Up>(support) & ~theirPawns_or_doubleAttackThem)   );
     
+    int support_or_phalanx_isnonzero        = ((support | phalanx) != 0);
     int support_or_phalanx_iszero           = ((support | phalanx) == 0);
+    int phalanx_iszero                      = (phalanx == 0);
     
-    // Score this pawn
-    int score = backward_score * backward_is_true * support_or_phalanx_iszero;
+    int phalanx_scale = 3 - phalanx_iszero;
+    int opposed_scale = 2 - opposed_iszero;   // reversed sense, so that we can multiply
+    int v = connected_scale_factor * phalanx_scale * opposed_scale;
+    Bitboard west_bb  = (support & shift<WEST>(Square_file_bb));
+    v += 17 * (west_bb  != 0);
+    Bitboard east_bb = (support & shift<EAST>(Square_file_bb));
+    v += 17 * (east_bb != 0);
+      
+    int isolated_score = Isolated + WeakUnopposed * opposed_iszero;
 
+    int backward_score = Backward + WeakUnopposed * opposed_iszero;
+      
+    // Score this pawn
+    int score = v * rank_scale_factor * support_or_phalanx_isnonzero;
+      
+    score -= isolated_score * support_or_phalanx_iszero * neighbours_iszero;
+
+    score += backward_score * support_or_phalanx_iszero * neighbours_iszero * backward_is_true;
+
+    
 
     passedResult    = Square_bb * passed_is_true;
     phalanxResult   = phalanx   * stoppers_xor_leverpush_iszero;
@@ -144,6 +164,9 @@ namespace {
     Bitboard passed_array   [NUM_PAWNS];
     Bitboard phalanx_array  [NUM_PAWNS];
     Bitboard leverPush_array[NUM_PAWNS];
+    
+    int connected_scale_array[NUM_PAWNS];
+    int rank_scale_array     [NUM_PAWNS];
     Score    final_score;
     Bitboard final_passed;
     int i;
@@ -159,6 +182,10 @@ namespace {
         s = SquareList[i];
         Square_file_bb[i] = file_bb(s);
         Square_rank_bb[i] = rank_bb(s);
+      
+        Rank r = relative_rank(Us, s);
+        connected_scale_array[i] = Connected[r] >> 1;
+        rank_scale_array[i] = 65536 + (r - 2) / 4;    // scales v to yield a Score
     }
 
     // Vectorizable main code
@@ -166,6 +193,8 @@ namespace {
     {
         score_array[i] = evaluate_pawn<Us>( Square_file_bb[i],
                                             Square_rank_bb[i],
+                                            connected_scale_array[i],
+                                            rank_scale_array[i],
                                             ourPawns,
                                             theirPawns,
                                             doubleAttackThem,
