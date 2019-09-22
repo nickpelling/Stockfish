@@ -65,11 +65,14 @@ namespace {
   #undef S
   #undef V
 
-  template<Color Us>
+    template<Color Us>
   inline Score evaluate_pawn( Bitboard Square_file_bb,
                               Bitboard Square_rank_bb,
                               Bitboard ourPawns,
-                              Bitboard theirPawns
+                              Bitboard theirPawns,
+                              Bitboard doubleAttackThem,
+                              Bitboard &phalanxResult,
+                              Bitboard &leverPushResult,
                               Bitboard &passedResult ) {
   
     constexpr Color     Them = (Us == WHITE ? BLACK : WHITE);
@@ -86,7 +89,7 @@ namespace {
     Bitboard opposed    = theirPawns & forward_file_bb(Us, Square_file_bb, Square_rank_bb);
     Bitboard stoppers   = theirPawns & passed_pawn_span(Us, Square_file_bb, Square_rank_bb);
     Bitboard lever      = theirPawns & adjacent_files_bb(Square_bb);
-    Bitboard leverPush  = theirPawns & adjacent_files_bb(Above_bb);
+    Bitboard leverPush  = theirPawns & adjacent_files_bb(above_bb);
     Bitboard doubled    = ourPawns   & shift<Down>(Square_bb);
     Bitboard neighbours = ourPawns   & adjacent_files_bb(Square_file_bb);
     Bitboard phalanx    = neighbours & Square_rank_bb;
@@ -96,11 +99,12 @@ namespace {
     // the adjacent files and cannot safely advance.
     // Phalanx and isolated pawns will be excluded when the pawn is scored.
     neighbours &= forward_ranks_bb(Them, Square_rank_bb);
-    Bitboard stoppers_leverPush_above = stoppers & (leverPush | Above_bb);  
+    Bitboard stoppers_leverPush_above = stoppers & (leverPush | above_bb);  
     int neighbours_iszero                   = (neighbours == 0);
-    int stoppers_leverPush_above_isnonzero  = (stoppers_leverPush_above == 0);
+    int opposed_iszero                      = (opposed == 0);
+    int stoppers_leverPush_above_iszero  = (stoppers_leverPush_above == 0);
     int backward_is_true = neighbours_iszero & stoppers_leverPush_above_iszero;
-    int backward_score = Backward + WeakUnopposed * opposed_nonzero;
+    int backward_score = Backward + WeakUnopposed * opposed_iszero;
 
     // A pawn is passed if one of the three following conditions is true:
     // (a) there is no stoppers except some levers
@@ -108,85 +112,99 @@ namespace {
     passed_is_true = (stoppers_xor_lever == 0);
 
     // (b) the only stoppers are the leverPush, but we outnumber them
+    // However, because we can't vectorize popcount(), we have to defer this
+    // to the caller's exit phase
     Bitboard stoppers_xor_leverPush     = stoppers ^ leverPush;    
     int stoppers_xor_leverpush_iszero   = (stoppers_xor_leverPush == 0);
-    passed_is_true |= (   stoppers_xor_leverpush_iszero
-                      &  (popcount(phalanx) >= popcount(leverPush))      );
     
     // (c) there is only one front stopper which can be levered.
-    Bitboard theirPawns_or_doubleAttackThem = (theirPawns | doubleAttackThem;
+    Bitboard theirPawns_or_doubleAttackThem = (theirPawns | doubleAttackThem);
     passed_is_true |= (   (stoppers == above_bb)
                        &  ((Square_rank_bb & FarSideBB) != 0)
                        &  (shift<Up>(support) & ~theirPawns_or_doubleAttackThem)   );
     
     int support_or_phalanx_iszero           = ((support | phalanx) == 0);
-    int opposed_iszero                      = (opposed == 0);
     
     // Score this pawn
     int score = backward_score * backward_is_true * support_or_phalanx_iszero;
 
 
-    passedResult = Square_bb * passed_is_true;
+    passedResult    = Square_bb * passed_is_true;
+    phalanxResult   = phalanx   * stoppers_xor_leverpush_iszero;
+    leverPushResult = leverPush * stoppers_xor_leverpush_iszero;
     return Score(score);
   }
 
   template<Color Us, int NUM_PAWNS>
-  Score evaluate_pawn_set(const Square* pl, Bitboard &passedResult)
+  Score evaluate_pawn_set(const Square* SquareList, Bitboard ourPawns, Bitboard theirPawns, Bitboard &passedResult)
   {
+    Bitboard Square_file_bb [NUM_PAWNS];
+    Bitboard Square_rank_bb [NUM_PAWNS];
+    Score    score_array    [NUM_PAWNS];
+    Bitboard passed_array   [NUM_PAWNS];
+    Bitboard phalanx_array  [NUM_PAWNS];
+    Bitboard leverPush_array[NUM_PAWNS];
+    Score    final_score;
+    Bitboard final_passed;
     int i;
     Square s;
-    Bitboard Square_file_bb[NUM_PAWNS];
-    Bitboard Square_rank_bb[NUM_PAWNS;
-    Score    score_array [NUM_PAWNS];
-    Bitboard passed_array[NUM_PAWNS];
-    Score     final_score;
-    Bitboard  final_passed;
     
-    constexpr Color Them = (Us == WHITE ? BLACK : WHITE);
+    constexpr Color Them = (Us == WHITE) ? BLACK : WHITE;
 
-    Bitboard ourPawns   = pos.pieces(Us,   PAWN);
-    Bitboard theirPawns = pos.pieces(Them, PAWN);
+    Bitboard doubleAttackThem = pawn_double_attacks_bb<Them>(theirPawns);
 
-    // Non-vectorizable stuff goes in here
-    for (int i=0; i<NUM_PAWNS; i++)
+    // Non-vectorizable entry code
+    for (i=0; i<NUM_PAWNS; i++)
     {
-        s = mySquare[i];
+        s = SquareList[i];
         Square_file_bb[i] = file_bb(s);
         Square_rank_bb[i] = rank_bb(s);
     }
 
-    // Vectorizable stuff goes in here
-    for (int i=0; i<NUM_PAWNS; i++)
+    // Vectorizable main code
+    for (i=0; i<NUM_PAWNS; i++)
     {
-        myScore[i] = evaluate_pawn<Us>( Square_file_bb[i],
+        score_array[i] = evaluate_pawn<Us>( Square_file_bb[i],
                                             Square_rank_bb[i],
                                             ourPawns,
-                                            theirPawns );
+                                            theirPawns,
+                                            doubleAttackThem,
+                                            phalanx_array[i],
+                                            leverPush_array[i],
+                                            passed_array[i] );
     }
     
-    // Non-vectorizable stuff goes in here
+    // Non-vectorizable exit code
     final_passed = Bitboard(0);
     final_score = SCORE_ZERO;
-    for (int i=0; i<NUM_PAWNS; i++)
+    for (i=0; i<NUM_PAWNS; i++)
     {
       final_passed |= passed_array[i];
+      if (    phalanx_array[i]
+          && (popcount(phalanx_array[i]) >= popcount(leverPush_array[i]))  )
+      {
+        final_passed |= Square_file_bb[i] & Square_rank_bb[i];
+      }
       final_score += score_array[i];
     }
     
     passedResult = final_passed;
     return final_score;
   }
-
+  
   // To evaluate all the pawns, select the appropriate unrolled template
   // based on both the current side's colour and on the number of pawns.
-  // This lets the compiler implement this in different ways
+  // This allows the compiler to implement this differently as needed.
   template<Color Us>
   Score evaluate(const Position& pos, Pawns::Entry* e) {
     const Square* pl = pos.squares<PAWN>(Us);
     Score     final_score;
     Bitboard  final_passed;
     
-    Bitboard ourPawns = pos.pieces(Us, PAWN);
+    constexpr Color Them = (Us == WHITE ? BLACK : WHITE);
+    
+    Bitboard ourPawns   = pos.pieces(Us,   PAWN);
+    Bitboard theirPawns = pos.pieces(Them, PAWN);
 
     e->kingSquares[Us] = SQ_NONE;
     e->pawnAttacks[Us] = pawn_attacks_bb<Us>(ourPawns);
@@ -194,20 +212,20 @@ namespace {
     switch (popcount(ourPawns))
     {
       case 0:
-        final_score = 0;
-        final_passed = Bitboard(0);
+        final_score = SCORE_ZERO;
+        final_passed = NoSquares;
         break;
-      case 1: final_score = evaluate_pawn_set<Us,1>(pl, final_passed);  break;
-      case 2: final_score = evaluate_pawn_set<Us,2>(pl, final_passed);  break;
-      case 3: final_score = evaluate_pawn_set<Us,3>(pl, final_passed);  break;
-      case 4: final_score = evaluate_pawn_set<Us,4>(pl, final_passed);  break;
-      case 5: final_score = evaluate_pawn_set<Us,5>(pl, final_passed);  break;
-      case 6: final_score = evaluate_pawn_set<Us,6>(pl, final_passed);  break;
-      case 7: final_score = evaluate_pawn_set<Us,7>(pl, final_passed);  break;
-      case 8: final_score = evaluate_pawn_set<Us,8>(pl, final_passed);  break;
+      case 1: final_score = evaluate_pawn_set<Us,1>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 2: final_score = evaluate_pawn_set<Us,2>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 3: final_score = evaluate_pawn_set<Us,3>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 4: final_score = evaluate_pawn_set<Us,4>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 5: final_score = evaluate_pawn_set<Us,5>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 6: final_score = evaluate_pawn_set<Us,6>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 7: final_score = evaluate_pawn_set<Us,7>(pl, ourPawns, theirPawns, final_passed);  break;
+      case 8: final_score = evaluate_pawn_set<Us,8>(pl, ourPawns, theirPawns, final_passed);  break;
       default:
-        final_score = 0;
-        final_passed = Bitboard(0);
+        final_score = SCORE_ZERO;
+        final_passed = NoSquares;
         break;
     }
 

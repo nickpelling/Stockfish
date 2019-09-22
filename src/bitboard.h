@@ -39,6 +39,7 @@ const std::string pretty(Bitboard b);
 
 }
 
+constexpr Bitboard NoSquares = Bitboard(0);
 constexpr Bitboard AllSquares = ~Bitboard(0);
 constexpr Bitboard DarkSquares = 0xAA55AA55AA55AA55ULL;
 
