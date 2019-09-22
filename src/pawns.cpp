@@ -106,11 +106,21 @@ constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
     Bitboard west_bb    = support    & shift<WEST>(square_file_bb);
     Bitboard east_bb    = support    & shift<EAST>(square_file_bb);
 
+#if defined(USE_SSE4)
+    #define IFTHEN2(A,B)        ((A) * (B))
+    #define IFTHEN3(A,B,C)      ((A) * (B) * (C))
+    #define IFTHEN4(A,B,C,D)    ((A) * (B) * (C) * (D))
+#else
+    #define IFTHEN2(A,B)        ((A) ? (B) : 0)
+    #define IFTHEN3(A,B,C)      ((A) ? ((B) ? (C) : 0) : 0)
+    #define IFTHEN4(A,B,C,D)    ((A) ? ((B) ? ((C) ? (D) : 0) : 0) : 0)
+#endif
+
     // A pawn is backward when it is behind all pawns of the same color on
     // the adjacent files and cannot safely advance.
     // Phalanx and isolated pawns will be excluded when the pawn is scored.
     Bitboard forward_neighbours       = neighbours & forward_ranks_bb(Them, square_rank_bb);
-    Bitboard stoppers_leverPush_above = stoppers & (leverPush | above2_bb); // FIXME?!?!? is above2_bb correct here?
+    Bitboard stoppers_leverPush_above = stoppers & (leverPush | above2_bb);
     int backward_is_true = (forward_neighbours == 0) & (stoppers_leverPush_above != 0);
 
     // A pawn is passed if one of the three following conditions is true:
@@ -128,10 +138,12 @@ constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
                        &  ((square_rank_bb & FarSideBB) != 0)
                        &  (shift<Up>(support) & ~theirPawns_or_doubleAttackThem)   );
     
-    int support_or_phalanx_iszero           = ((support | phalanx) == 0);
-    int support_or_phalanx_isnonzero        = 1 - support_or_phalanx_iszero;
     int phalanx_iszero                      = (phalanx == 0);
     int opposed_iszero                      = (opposed == 0);
+    int neighbours_iszero                   = (neighbours == 0);
+    int support_iszero                      = (support == 0);
+    int support_or_phalanx_iszero           = ((support | phalanx) == 0);
+    int support_or_phalanx_isnonzero        = 1 - support_or_phalanx_iszero;
 
     int phalanx_scale = 3 - phalanx_iszero;
     int opposed_scale = 2 - opposed_iszero;   // reversed sense, to avoid having to divide
@@ -139,25 +151,25 @@ constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
     v += 17 * (west_bb != 0);
     v += 17 * (east_bb != 0);
       
-    int isolated_score = Isolated + WeakUnopposed * opposed_iszero;
+    int isolated_score = Isolated + IFTHEN2(opposed_iszero, WeakUnopposed);
 
-    int backward_score = Backward + WeakUnopposed * opposed_iszero;
+    int backward_score = Backward + IFTHEN2(opposed_iszero, WeakUnopposed);
 
     int lever_more_than_one = lever & (lever - 1);
     int doubled_score = int(Doubled) * (doubled != 0) + int(WeakLever) * (lever_more_than_one != 0);
 
     // Score this pawn
-    int score = v * rank_scale_factor * support_or_phalanx_isnonzero;
-      
-    score -= isolated_score * support_or_phalanx_iszero * (neighbours == 0);
+    int score = IFTHEN2(support_or_phalanx_isnonzero, v * rank_scale_factor);
 
-    score += backward_score * support_or_phalanx_iszero * (neighbours == 0) * backward_is_true;
+    score -= IFTHEN3(neighbours_iszero, support_or_phalanx_iszero, isolated_score);
 
-    score -= doubled_score * (support == 0);
+    score += IFTHEN4(neighbours_iszero, support_or_phalanx_iszero, backward_is_true, backward_score);
 
-    passedResult    = square_bb * passed_is_true;
-    phalanxResult   = phalanx   * stoppers_xor_leverpush_iszero;
-    leverPushResult = leverPush * stoppers_xor_leverpush_iszero;
+    score -= IFTHEN2(support_iszero, doubled_score);
+
+    passedResult    = IFTHEN2(passed_is_true, square_bb);
+    phalanxResult   = IFTHEN2(stoppers_xor_leverpush_iszero, phalanx);
+    leverPushResult = IFTHEN2(stoppers_xor_leverpush_iszero, leverPush);
     return Score(score);
   }
 

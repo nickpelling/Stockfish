@@ -403,6 +403,7 @@ help:
 	@echo ""
 	@echo "x86-64-bmi2             > x86 64-bit with pext support (also enables SSE4)"
 	@echo "x86-64-modern           > x86 64-bit with popcnt support (also enables SSE3)"
+	@echo "x86-64-sse4             > x86 64-bit with popcnt support and SSE4"
 	@echo "x86-64                  > x86 64-bit generic"
 	@echo "x86-32                  > x86 32-bit (also enables SSE)"
 	@echo "x86-32-old              > x86 32-bit fall back for old hardware"
