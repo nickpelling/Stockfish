@@ -24,6 +24,7 @@
 #include <string>
 
 #include "types.h"
+#include "xmacros.h"
 
 namespace Bitbases {
 
@@ -65,6 +66,11 @@ constexpr Bitboard CenterFiles = FileCBB | FileDBB | FileEBB | FileFBB;
 constexpr Bitboard KingSide    = FileEBB | FileFBB | FileGBB | FileHBB;
 constexpr Bitboard Center      = (FileDBB | FileEBB) & (Rank4BB | Rank5BB);
 
+#define SQUAREMASK(N) 1ULL << (N),
+constexpr Bitboard SquareBB[SQUARE_NB] = {
+  XMACRO_SQUARE(SQUAREMASK)
+};
+
 constexpr Bitboard KingFlank[FILE_NB] = {
   QueenSide ^ FileDBB, QueenSide, QueenSide,
   CenterFiles, CenterFiles,
@@ -74,7 +80,7 @@ constexpr Bitboard KingFlank[FILE_NB] = {
 extern uint8_t PopCnt16[1 << 16];
 extern uint8_t SquareDistance[SQUARE_NB][SQUARE_NB];
 
-extern Bitboard SquareBB[SQUARE_NB];
+
 extern Bitboard LineBB[SQUARE_NB][SQUARE_NB];
 extern Bitboard PseudoAttacks[PIECE_TYPE_NB][SQUARE_NB];
 extern Bitboard PawnAttacks[COLOR_NB][SQUARE_NB];
@@ -105,17 +111,17 @@ struct Magic {
 extern Magic RookMagics[SQUARE_NB];
 extern Magic BishopMagics[SQUARE_NB];
 
-inline Bitboard square_bb(Square s) {
-  assert(s >= SQ_A1 && s <= SQ_H8);
-  return SquareBB[s];
+constexpr Bitboard square_bb(Square s) {
+  return assert(s >= SQ_A1 && s <= SQ_H8),
+         SquareBB[s];
 }
 
 /// Overloads of bitwise operators between a Bitboard and a Square for testing
 /// whether a given bit is set in a bitboard, and for setting and clearing bits.
 
-inline Bitboard  operator&( Bitboard  b, Square s) { return b &  square_bb(s); }
-inline Bitboard  operator|( Bitboard  b, Square s) { return b |  square_bb(s); }
-inline Bitboard  operator^( Bitboard  b, Square s) { return b ^  square_bb(s); }
+constexpr Bitboard  operator&( Bitboard  b, Square s) { return b &  square_bb(s); }
+constexpr Bitboard  operator|( Bitboard  b, Square s) { return b |  square_bb(s); }
+constexpr Bitboard  operator^( Bitboard  b, Square s) { return b ^  square_bb(s); }
 inline Bitboard& operator|=(Bitboard& b, Square s) { return b |= square_bb(s); }
 inline Bitboard& operator^=(Bitboard& b, Square s) { return b ^= square_bb(s); }
 
@@ -123,7 +129,7 @@ constexpr bool more_than_one(Bitboard b) {
   return b & (b - 1);
 }
 
-inline bool opposite_colors(Square s1, Square s2) {
+constexpr bool opposite_colors(Square s1, Square s2) {
   return bool(DarkSquares & s1) != bool(DarkSquares & s2);
 }
 
@@ -131,19 +137,19 @@ inline bool opposite_colors(Square s1, Square s2) {
 /// rank_bb() and file_bb() return a bitboard representing all the squares on
 /// the given file or rank.
 
-inline Bitboard rank_bb(Rank r) {
+constexpr Bitboard rank_bb(Rank r) {
   return Rank1BB << (8 * r);
 }
 
-inline Bitboard rank_bb(Square s) {
+constexpr Bitboard rank_bb(Square s) {
   return rank_bb(rank_of(s));
 }
 
-inline Bitboard file_bb(File f) {
+constexpr Bitboard file_bb(File f) {
   return FileABB << f;
 }
 
-inline Bitboard file_bb(Square s) {
+constexpr Bitboard file_bb(Square s) {
   return file_bb(file_of(s));
 }
 
@@ -184,7 +190,7 @@ constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
 /// adjacent_files_bb() returns a bitboard representing all the squares on the
 /// adjacent files of the given one.
 
-inline Bitboard adjacent_files_bb(Square s) {
+constexpr Bitboard adjacent_files_bb(Square s) {
   return shift<EAST>(file_bb(s)) | shift<WEST>(file_bb(s));
 }
 
@@ -202,7 +208,7 @@ inline Bitboard between_bb(Square s1, Square s2) {
 /// in front of the given one, from the point of view of the given color. For instance,
 /// forward_ranks_bb(BLACK, SQ_D3) will return the 16 squares on ranks 1 and 2.
 
-inline Bitboard forward_ranks_bb(Color c, Square s) {
+constexpr Bitboard forward_ranks_bb(Color c, Square s) {
   return c == WHITE ? ~Rank1BB << 8 * (rank_of(s) - RANK_1)
                     : ~Rank8BB >> 8 * (RANK_8 - rank_of(s));
 }
@@ -211,7 +217,7 @@ inline Bitboard forward_ranks_bb(Color c, Square s) {
 /// forward_file_bb() returns a bitboard representing all the squares along the
 /// line in front of the given one, from the point of view of the given color.
 
-inline Bitboard forward_file_bb(Color c, Square s) {
+constexpr Bitboard forward_file_bb(Color c, Square s) {
   return forward_ranks_bb(c, s) & file_bb(s);
 }
 
@@ -228,7 +234,7 @@ inline Bitboard pawn_attack_span(Color c, Square s) {
 /// passed_pawn_span() returns a bitboard which can be used to test if a pawn of
 /// the given color and on the given square is a passed pawn.
 
-inline Bitboard passed_pawn_span(Color c, Square s) {
+constexpr Bitboard passed_pawn_span(Color c, Square s) {
   return forward_ranks_bb(c, s) & (adjacent_files_bb(s) | file_bb(s));
 }
 
