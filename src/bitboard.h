@@ -106,8 +106,8 @@ extern Magic RookMagics[SQUARE_NB];
 extern Magic BishopMagics[SQUARE_NB];
 
 inline Bitboard square_bb(Square s) {
-  assert(s >= SQ_A1 && s <= SQ_H8);
-  return SquareBB[s];
+  return assert(s >= SQ_A1 && s <= SQ_H8),
+         SquareBB[s];
 }
 
 /// Overloads of bitwise operators between a Bitboard and a Square for testing
@@ -302,14 +302,13 @@ inline int popcount(Bitboard b) {
 
 #if defined(__GNUC__)  // GCC, Clang, ICC
 
-inline Square lsb(Bitboard b) {
-  assert(b);
-  return Square(__builtin_ctzll(b));
+constexpr Square lsb(Bitboard b) {
+  return assert(b),
+         Square(__builtin_ctzll(b));
 }
 
-inline Square msb(Bitboard b) {
-  assert(b);
-  return Square(63 ^ __builtin_clzll(b));
+constexpr Square msb(Bitboard b) {
+  return Square(SQ_H8 - __builtin_clzll(b));
 }
 
 #elif defined(_MSC_VER)  // MSVC
@@ -377,7 +376,7 @@ inline Square pop_lsb(Bitboard* b) {
 
 
 /// frontmost_sq() returns the most advanced square for the given color
-inline Square frontmost_sq(Color c, Bitboard b) {
+constexpr Square frontmost_sq(Color c, Bitboard b) {
   return c == WHITE ? msb(b) : lsb(b);
 }
 

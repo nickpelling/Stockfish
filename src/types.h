@@ -391,9 +391,9 @@ constexpr PieceType type_of(Piece pc) {
   return PieceType(pc & 7);
 }
 
-inline Color color_of(Piece pc) {
-  assert(pc != NO_PIECE);
-  return Color(pc >> 3);
+constexpr Color color_of(Piece pc) {
+  return assert(pc != NO_PIECE),
+         Color(pc >> 3);
 }
 
 constexpr bool is_ok(Square s) {
