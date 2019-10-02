@@ -24,6 +24,7 @@
 #include <string>
 
 #include "types.h"
+#include "xmacros.h"
 
 namespace Bitbases {
 
@@ -131,19 +132,19 @@ inline bool opposite_colors(Square s1, Square s2) {
 /// rank_bb() and file_bb() return a bitboard representing all the squares on
 /// the given file or rank.
 
-inline Bitboard rank_bb(Rank r) {
+constexpr Bitboard rank_bb(Rank r) {
   return Rank1BB << (8 * r);
 }
 
-inline Bitboard rank_bb(Square s) {
+constexpr Bitboard rank_bb(Square s) {
   return rank_bb(rank_of(s));
 }
 
-inline Bitboard file_bb(File f) {
+constexpr Bitboard file_bb(File f) {
   return FileABB << f;
 }
 
-inline Bitboard file_bb(Square s) {
+constexpr Bitboard file_bb(Square s) {
   return file_bb(file_of(s));
 }
 
@@ -184,8 +185,18 @@ constexpr Bitboard pawn_double_attacks_bb(Bitboard b) {
 /// adjacent_files_bb() returns a bitboard representing all the squares on the
 /// adjacent files of the given one.
 
-inline Bitboard adjacent_files_bb(Square s) {
+constexpr Bitboard adjacent_files_bb_raw(Square s) {
   return shift<EAST>(file_bb(s)) | shift<WEST>(file_bb(s));
+}
+
+#define ADJACENT_FILES(SQ)  adjacent_files_bb_raw(SQ),
+
+constexpr Bitboard adjacent_files_bb_array[SQUARE_NB] = {
+  XMACRO_SQUARE(ADJACENT_FILES)
+};
+
+constexpr Bitboard adjacent_files_bb(Square s) {
+  return adjacent_files_bb_array[s];
 }
 
 
