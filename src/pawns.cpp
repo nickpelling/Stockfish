@@ -83,6 +83,7 @@ namespace {
 
     Bitboard ourPawns   = pos.pieces(  Us, PAWN);
     Bitboard theirPawns = pos.pieces(Them, PAWN);
+    int numPawns = popcount(ourPawns);
 
     Bitboard doubleAttackThem = pawn_double_attacks_bb<Them>(theirPawns);
 
@@ -91,24 +92,27 @@ namespace {
     e->pawnAttacks[Us] = e->pawnAttacksSpan[Us] = pawn_attacks_bb<Us>(ourPawns);
 
     // Loop through all pawns of the current color and score each pawn
-    while ((s = *pl++) != SQ_NONE)
+    for (int i=0; i<numPawns; i++)
     {
+        s = pl[i];
         assert(pos.piece_on(s) == make_piece(Us, PAWN));
 
         Bitboard sq_file_bb = file_bb(s);
         Bitboard sq_rank_bb = rank_bb(s);
         Bitboard sq_bb = sq_file_bb & sq_rank_bb;
-
-        Rank r = relative_rank(Us, s);
+        
+        Bitboard pawnAttacksBB = pawn_attacks_bb<Us>(sq_bb);
+        Bitboard adjacentFilesBB = adjacent_files_bb(sq_file_bb);
+        Bitboard passedPawnSpanBB = forward_ranks_bb(Us, sq_rank_bb) & (adjacentFilesBB | sq_file_bb);
 
         // Flag the pawn
         opposed    = theirPawns & forward_file_bb(Us, sq_file_bb, sq_rank_bb);
         blocked    = theirPawns & shift<Up>(sq_bb);
-        stoppers   = theirPawns & passed_pawn_span(Us, sq_file_bb, sq_rank_bb);
-        lever      = theirPawns & PawnAttacks[Us][s];
-        leverPush  = theirPawns & PawnAttacks[Us][s + Up];
+        stoppers   = theirPawns & passedPawnSpanBB;
+        lever      = theirPawns & pawnAttacksBB;
+        leverPush  = theirPawns & shift<Up>(pawnAttacksBB);
         doubled    = ourPawns   & shift<Down>(sq_bb);
-        neighbours = ourPawns   & adjacent_files_bb(sq_file_bb);
+        neighbours = ourPawns   & adjacentFilesBB;
         phalanx    = neighbours & sq_rank_bb;
         support    = neighbours & shift<Down>(sq_rank_bb);
 
@@ -119,7 +123,7 @@ namespace {
 
         // Compute additional span if pawn is not backward nor blocked
         if (!backward && !blocked)
-            e->pawnAttacksSpan[Us] |= pawn_attack_span(Us, s);
+            e->pawnAttacksSpan[Us] |= pawn_attack_span(Us, sq_file_bb, sq_rank_bb);
 
         // A pawn is passed if one of the three following conditions is true:
         // (a) there is no stoppers except some levers
@@ -140,6 +144,8 @@ namespace {
         // Score this pawn
         if (support | phalanx)
         {
+            Rank r = relative_rank(Us, s);
+        
             int v =  Connected[r] * (2 + bool(phalanx) - bool(opposed))
                    + 21 * popcount(support);
 
