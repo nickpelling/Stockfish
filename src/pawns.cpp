@@ -74,10 +74,13 @@ namespace {
     constexpr Bitboard  FarSideBB = (Us == WHITE) ? (Rank5BB | Rank6BB | Rank7BB | Rank8BB)
                                                   : (Rank1BB | Rank2BB | Rank3BB | Rank4BB);
 
+    Bitboard sq_file_bb, sq_rank_bb, sq_bb;
+    Bitboard pawnAttacksBB, adjacentFilesBB, passedPawnSpanBB;
     Bitboard neighbours, stoppers, support, phalanx, opposed;
     Bitboard lever, leverPush, blocked;
     bool backward, passed, doubled;
-    Score score = SCORE_ZERO;
+    Score score, finalScore;
+    Bitboard finalPassed;
     const Square* pl = pos.squares<PAWN>(Us);
 
     Bitboard ourPawns   = pos.pieces(  Us, PAWN);
@@ -91,6 +94,8 @@ namespace {
     Bitboard sq_rank_bb_array[SQUARE_NB];
     
     // vector output arrays
+    Score score_output_array[SQUARE_NB];
+    Bitboard passed_output_array[SQUARE_NB];
 //    int      connected_result_array[SQUARE_NB];
 //    Bitboard support_result_array[SQUARE_NB];
 //    Bitboard attacksSpan_output_array[SQUARE_NB];
@@ -113,13 +118,13 @@ namespace {
     // Loop through all pawns of the current color and score each pawn
     for (int i=0; i<numPawns; i++)
     {
-        Bitboard sq_file_bb = sq_file_bb_array[i];
-        Bitboard sq_rank_bb = sq_rank_bb_array[i];
-        Bitboard sq_bb = sq_file_bb & sq_rank_bb;
+        sq_file_bb = sq_file_bb_array[i];
+        sq_rank_bb = sq_rank_bb_array[i];
+        sq_bb = sq_file_bb & sq_rank_bb;
         
-        Bitboard pawnAttacksBB = pawn_attacks_bb<Us>(sq_bb);
-        Bitboard adjacentFilesBB = adjacent_files_bb(sq_file_bb);
-        Bitboard passedPawnSpanBB = forward_ranks_bb(Us, sq_rank_bb) & (adjacentFilesBB | sq_file_bb);
+        pawnAttacksBB = pawn_attacks_bb<Us>(sq_bb);
+        adjacentFilesBB = adjacent_files_bb(sq_file_bb);
+        passedPawnSpanBB = forward_ranks_bb(Us, sq_rank_bb) & (adjacentFilesBB | sq_file_bb);
 
         // Flag the pawn
         opposed    = theirPawns & forward_file_bb(Us, sq_file_bb, sq_rank_bb);
@@ -127,7 +132,7 @@ namespace {
         stoppers   = theirPawns & passedPawnSpanBB;
         lever      = theirPawns & pawnAttacksBB;
         leverPush  = theirPawns & shift<Up>(pawnAttacksBB);
-        doubled    = ourPawns   & shift<Down>(sq_bb);
+        doubled    = bool(ourPawns & shift<Down>(sq_bb));
         neighbours = ourPawns   & adjacentFilesBB;
         phalanx    = neighbours & sq_rank_bb;
         support    = neighbours & shift<Down>(sq_rank_bb);
@@ -154,10 +159,10 @@ namespace {
 
         // Passed pawns will be properly scored later in evaluation when we have
         // full attack info.
-        if (passed)
-            e->passedPawns[Us] |= sq_bb;
+        passed_output_array[i] = (passed) ? sq_bb : Bitboard(0);
 
         // Score this pawn
+        score = SCORE_ZERO;
         if (support | phalanx)
         {
             Square s = pl[i];
@@ -180,9 +185,22 @@ namespace {
         if (!support)
             score -=   Doubled * doubled
                      + WeakLever * more_than_one(lever);
+                     
+        score_output_array[i] = score;
     }
 
-    return score;
+
+    // Loop through all pawns of the current color, processing all the output vectors
+    finalScore = SCORE_ZERO;
+    finalPassed = Bitboard(0);
+    for (int i=0; i<numPawns; i++)
+    {
+      finalScore  += score_output_array[i];
+      finalPassed |= passed_output_array[i];
+    }
+
+    e->passedPawns[Us] = finalPassed;
+    return finalScore;
   }
 
 } // namespace
