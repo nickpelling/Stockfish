@@ -100,7 +100,6 @@ namespace {
     Bitboard passed_output_array[SQUARE_NB];
     int v1_output_array[SQUARE_NB];
     int v2_output_array[SQUARE_NB];
-//    Bitboard support_result_array[SQUARE_NB];
     Bitboard attacksSpan_output_array[SQUARE_NB];
 
     e->passedPawns[Us] = 0;
@@ -189,7 +188,6 @@ namespace {
         score_output_array[i] = score;
     }
 
-
     // Loop through all pawns of the current color, processing all the output vectors
     finalScore = SCORE_ZERO;
     finalPassed = Bitboard(0);
@@ -204,7 +202,7 @@ namespace {
       {
         s = pl[i];
         Rank r = relative_rank(Us, s);
-        int v = Connected[ relative_rank(Us, s) ] * v1_output_array[i] + v2_output_array[i];
+        int v = Connected[ r ] * v1_output_array[i] + v2_output_array[i];
         finalScore += make_score(v, v * (r - 2) / 4);
       }
     }
