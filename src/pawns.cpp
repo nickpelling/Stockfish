@@ -135,7 +135,7 @@ namespace {
         // Passed pawns will be properly scored later in evaluation when we have
         // full attack info.
         if (passed)
-            e->passedPawns[Us] |= s;
+            e->passedPawns[Us] |= sq_bb;
 
         // Score this pawn
         if (support | phalanx)
