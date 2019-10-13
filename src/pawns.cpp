@@ -78,6 +78,7 @@ namespace {
     Bitboard pawnAttacksBB, eastBB, westBB, adjacentFilesBB, passedPawnSpanBB;
     Bitboard neighbours, stoppers, support, phalanx, opposed;
     Bitboard lever, leverPush, blocked;
+    int numPhalanx, numLeverPush, numSupport;
     bool backward, passed, doubled;
     Square s;
     Score score, finalScore;
@@ -150,13 +151,16 @@ namespace {
         if (!backward && !blocked)
             e->pawnAttacksSpan[Us] |= pawn_attack_span(Us, sq_file_bb, sq_rank_bb);
 
+        numPhalanx   = bool(phalanx & westBB)   + bool(phalanx & eastBB);
+        numLeverPush = bool(leverPush & westBB) + bool(leverPush & eastBB);
+
         // A pawn is passed if one of the three following conditions is true:
         // (a) there is no stoppers except some levers
         // (b) the only stoppers are the leverPush, but we outnumber them
         // (c) there is only one front stopper which can be levered.
         passed =   !(stoppers ^ lever)
                 || (   !(stoppers ^ leverPush)
-                    && popcount(phalanx) >= popcount(leverPush))
+                    && numPhalanx >= numLeverPush)
                 || (   stoppers == blocked
                     && (sq_bb & FarSideBB)
                     && (shift<Up>(support) & ~(theirPawns | doubleAttackThem)));
@@ -166,7 +170,9 @@ namespace {
         passed_output_array[i] = (passed) ? sq_bb : Bitboard(0);
 
         v1_output_array[i] = (support | phalanx) ? (2 + bool(phalanx) - bool(opposed)) : 0;
-        v2_output_array[i] = 21 * (bool(support & eastBB) + bool(support & westBB));
+        
+        numSupport = bool(support & eastBB) + bool(support & westBB);
+        v2_output_array[i] = 21 * numSupport;
 
         // Score this pawn
         score = SCORE_ZERO;
@@ -196,7 +202,7 @@ namespace {
       finalScore  += score_output_array[i];
       finalPassed |= passed_output_array[i];
       
-      if (v1_output_array[i])
+      if (v1_output_array[i]) 
       {
         s = pl[i];
         Rank r = relative_rank(Us, s);
