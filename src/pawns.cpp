@@ -75,10 +75,11 @@ namespace {
                                                   : (Rank1BB | Rank2BB | Rank3BB | Rank4BB);
 
     Bitboard sq_file_bb, sq_rank_bb, sq_bb;
-    Bitboard pawnAttacksBB, adjacentFilesBB, passedPawnSpanBB;
+    Bitboard pawnAttacksBB, eastBB, westBB, adjacentFilesBB, passedPawnSpanBB;
     Bitboard neighbours, stoppers, support, phalanx, opposed;
     Bitboard lever, leverPush, blocked;
     bool backward, passed, doubled;
+    Square s;
     Score score, finalScore;
     Bitboard finalPassed;
     const Square* pl = pos.squares<PAWN>(Us);
@@ -96,7 +97,8 @@ namespace {
     // vector output arrays
     Score score_output_array[SQUARE_NB];
     Bitboard passed_output_array[SQUARE_NB];
-//    int      connected_result_array[SQUARE_NB];
+    int v1_output_array[SQUARE_NB];
+    int v2_output_array[SQUARE_NB];
 //    Bitboard support_result_array[SQUARE_NB];
 //    Bitboard attacksSpan_output_array[SQUARE_NB];
 
@@ -107,7 +109,7 @@ namespace {
     // Loop through all pawns of the current color, filling up the input vectors
     for (int i=0; i<numPawns; i++)
     {
-      Square s = pl[i];
+      s = pl[i];
       
       assert(pos.piece_on(s) == make_piece(Us, PAWN));
       
@@ -123,7 +125,9 @@ namespace {
         sq_bb = sq_file_bb & sq_rank_bb;
         
         pawnAttacksBB = pawn_attacks_bb<Us>(sq_bb);
-        adjacentFilesBB = adjacent_files_bb(sq_file_bb);
+        eastBB = shift<EAST>(sq_file_bb);
+        westBB = shift<WEST>(sq_file_bb);
+        adjacentFilesBB = eastBB | westBB;
         passedPawnSpanBB = forward_ranks_bb(Us, sq_rank_bb) & (adjacentFilesBB | sq_file_bb);
 
         // Flag the pawn
@@ -161,19 +165,13 @@ namespace {
         // full attack info.
         passed_output_array[i] = (passed) ? sq_bb : Bitboard(0);
 
+        v1_output_array[i] = (support | phalanx) ? (2 + bool(phalanx) - bool(opposed)) : 0;
+        v2_output_array[i] = 21 * (bool(support & eastBB) + bool(support & westBB));
+
         // Score this pawn
         score = SCORE_ZERO;
         if (support | phalanx)
-        {
-            Square s = pl[i];
-            Rank r = relative_rank(Us, s);
-        
-            int v =  Connected[r] * (2 + bool(phalanx) - bool(opposed))
-                   + 21 * popcount(support);
-
-            score += make_score(v, v * (r - 2) / 4);
-        }
-
+          ;
         else if (!neighbours)
             score -=   Isolated
                      + WeakUnopposed * !opposed;
@@ -197,6 +195,14 @@ namespace {
     {
       finalScore  += score_output_array[i];
       finalPassed |= passed_output_array[i];
+      
+      if (v1_output_array[i])
+      {
+        s = pl[i];
+        Rank r = relative_rank(Us, s);
+        int v = Connected[ relative_rank(Us, s) ] * v1_output_array[i] + v2_output_array[i];
+        finalScore += make_score(v, v * (r - 2) / 4);
+      }
     }
 
     e->passedPawns[Us] = finalPassed;
