@@ -144,11 +144,12 @@ namespace {
 
         // A pawn is backward when it is behind all pawns of the same color on
         // the adjacent files and cannot safely advance.
-        backward =  !(neighbours & forward_ranks_bb(Them, shift<Up>(sq_rank_bb)))
-                  && (stoppers & (leverPush | blocked));
+        backward =  bool(!(neighbours & forward_ranks_bb(Them, shift<Up>(sq_rank_bb))))
+                  & bool(stoppers & (leverPush | blocked));
 
         // Compute additional span if pawn is not backward nor blocked
-        attacksSpan_output_array[i] = bool(!backward && !blocked) * pawn_attack_span(Us, sq_file_bb, sq_rank_bb);
+        attacksSpan_output_array[i] = (!backward) * bool(!blocked)
+                                        * pawn_attack_span(Us, sq_file_bb, sq_rank_bb);
 
         numPhalanx   = bool(phalanx & westBB)   + bool(phalanx & eastBB);
         numLeverPush = bool(leverPush & westBB) + bool(leverPush & eastBB);
@@ -157,12 +158,12 @@ namespace {
         // (a) there is no stoppers except some levers
         // (b) the only stoppers are the leverPush, but we outnumber them
         // (c) there is only one front stopper which can be levered.
-        passed =   !(stoppers ^ lever)
-                || (   !(stoppers ^ leverPush)
-                    && numPhalanx >= numLeverPush)
-                || (   stoppers == blocked
-                    && (sq_bb & FarSideBB)
-                    && (shift<Up>(support) & ~(theirPawns | doubleAttackThem)));
+        passed =   bool(!(stoppers ^ lever))
+                |  (   bool(!(stoppers ^ leverPush))
+                    &  (numPhalanx >= numLeverPush))
+                |  (   (stoppers == blocked)
+                    &  bool(sq_bb & FarSideBB)
+                    &  bool(shift<Up>(support) & ~(theirPawns | doubleAttackThem)));
 
         // Passed pawns will be properly scored later in evaluation when we have
         // full attack info.
