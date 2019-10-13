@@ -175,13 +175,12 @@ namespace {
 
         // Score this pawn
         score = SCORE_ZERO;
-        if (support | phalanx)
-          ;
-        else if (!neighbours)
+
+        if (!(support | phalanx) && !neighbours)
             score -=   Isolated
                      + WeakUnopposed * !opposed;
 
-        else if (backward)
+        if (!(support | phalanx) && neighbours && backward)
             score -=   Backward
                      + WeakUnopposed * !opposed;
 
