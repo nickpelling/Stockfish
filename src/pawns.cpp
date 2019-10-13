@@ -102,13 +102,13 @@ namespace {
         Rank r = relative_rank(Us, s);
 
         // Flag the pawn
-        opposed    = theirPawns & forward_file_bb(Us, s);
+        opposed    = theirPawns & forward_file_bb(Us, sq_file_bb, sq_rank_bb);
         blocked    = theirPawns & shift<Up>(sq_bb);
-        stoppers   = theirPawns & passed_pawn_span(Us, s);
+        stoppers   = theirPawns & passed_pawn_span(Us, sq_file_bb, sq_rank_bb);
         lever      = theirPawns & PawnAttacks[Us][s];
         leverPush  = theirPawns & PawnAttacks[Us][s + Up];
         doubled    = ourPawns   & shift<Down>(sq_bb);
-        neighbours = ourPawns   & adjacent_files_bb(s);
+        neighbours = ourPawns   & adjacent_files_bb(sq_file_bb);
         phalanx    = neighbours & sq_rank_bb;
         support    = neighbours & shift<Down>(sq_rank_bb);
 
