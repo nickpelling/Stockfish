@@ -82,7 +82,7 @@ namespace {
     bool backward, passed, doubled;
     Square s;
     Score score, finalScore;
-    Bitboard finalPassed;
+    Bitboard finalPassed, finalAttacks;
     const Square* pl = pos.squares<PAWN>(Us);
 
     Bitboard ourPawns   = pos.pieces(  Us, PAWN);
@@ -101,7 +101,7 @@ namespace {
     int v1_output_array[SQUARE_NB];
     int v2_output_array[SQUARE_NB];
 //    Bitboard support_result_array[SQUARE_NB];
-//    Bitboard attacksSpan_output_array[SQUARE_NB];
+    Bitboard attacksSpan_output_array[SQUARE_NB];
 
     e->passedPawns[Us] = 0;
     e->kingSquares[Us] = SQ_NONE;
@@ -148,8 +148,7 @@ namespace {
                   && (stoppers & (leverPush | blocked));
 
         // Compute additional span if pawn is not backward nor blocked
-        if (!backward && !blocked)
-            e->pawnAttacksSpan[Us] |= pawn_attack_span(Us, sq_file_bb, sq_rank_bb);
+        attacksSpan_output_array[i] = (!backward && !blocked) ? pawn_attack_span(Us, sq_file_bb, sq_rank_bb) : Bitboard(0);
 
         numPhalanx   = bool(phalanx & westBB)   + bool(phalanx & eastBB);
         numLeverPush = bool(leverPush & westBB) + bool(leverPush & eastBB);
@@ -197,10 +196,12 @@ namespace {
     // Loop through all pawns of the current color, processing all the output vectors
     finalScore = SCORE_ZERO;
     finalPassed = Bitboard(0);
+    finalAttacks = e->pawnAttacksSpan[Us];
     for (int i=0; i<numPawns; i++)
     {
-      finalScore  += score_output_array[i];
-      finalPassed |= passed_output_array[i];
+      finalScore   += score_output_array[i];
+      finalPassed  |= passed_output_array[i];
+      finalAttacks |= attacksSpan_output_array[i];
       
       if (v1_output_array[i]) 
       {
@@ -212,6 +213,7 @@ namespace {
     }
 
     e->passedPawns[Us] = finalPassed;
+    e->pawnAttacksSpan[Us] = finalAttacks;
     return finalScore;
   }
 
