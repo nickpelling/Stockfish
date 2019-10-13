@@ -176,17 +176,14 @@ namespace {
         // Score this pawn
         score = SCORE_ZERO;
 
-        if (!(support | phalanx) && !neighbours)
-            score -=   Isolated
-                     + WeakUnopposed * !opposed;
+        score -= Score(bool((!(support | phalanx) && !neighbours))
+                * (Isolated + WeakUnopposed * !opposed));
 
-        if (!(support | phalanx) && neighbours && backward)
-            score -=   Backward
-                     + WeakUnopposed * !opposed;
+        score -= Score(bool(!(support | phalanx) && neighbours && backward)
+                * (Backward + WeakUnopposed * !opposed));
 
-        if (!support)
-            score -=   Doubled * doubled
-                     + WeakLever * more_than_one(lever);
+        score -= Score(bool(!support)
+                * (Doubled * doubled + WeakLever * more_than_one(lever)));
                      
         score_output_array[i] = score;
     }

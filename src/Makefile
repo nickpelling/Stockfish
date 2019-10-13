@@ -320,7 +320,7 @@ ifeq ($(popcnt),yes)
 	else ifeq ($(comp),icc)
 		CXXFLAGS += -msse3 -DUSE_POPCNT
 	else
-		CXXFLAGS += -msse3 -mpopcnt -DUSE_POPCNT
+		CXXFLAGS += -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mpopcnt -DUSE_POPCNT
 	endif
 endif
 
