@@ -76,7 +76,6 @@ namespace {
 
     Bitboard neighbours, stoppers, support, phalanx, opposed;
     Bitboard lever, leverPush, blocked;
-    Square s;
     bool backward, passed, doubled;
     Score score = SCORE_ZERO;
     const Square* pl = pos.squares<PAWN>(Us);
@@ -87,18 +86,35 @@ namespace {
 
     Bitboard doubleAttackThem = pawn_double_attacks_bb<Them>(theirPawns);
 
+    // vector input arrays
+    Bitboard sq_file_bb_array[SQUARE_NB];
+    Bitboard sq_rank_bb_array[SQUARE_NB];
+    
+    // vector output arrays
+//    int      connected_result_array[SQUARE_NB];
+//    Bitboard support_result_array[SQUARE_NB];
+//    Bitboard attacksSpan_output_array[SQUARE_NB];
+
     e->passedPawns[Us] = 0;
     e->kingSquares[Us] = SQ_NONE;
     e->pawnAttacks[Us] = e->pawnAttacksSpan[Us] = pawn_attacks_bb<Us>(ourPawns);
 
+    // Loop through all pawns of the current color, filling up the input vectors
+    for (int i=0; i<numPawns; i++)
+    {
+      Square s = pl[i];
+      
+      assert(pos.piece_on(s) == make_piece(Us, PAWN));
+      
+      sq_file_bb_array[i] = file_bb(s);
+      sq_rank_bb_array[i] = rank_bb(s);
+    }
+
     // Loop through all pawns of the current color and score each pawn
     for (int i=0; i<numPawns; i++)
     {
-        s = pl[i];
-        assert(pos.piece_on(s) == make_piece(Us, PAWN));
-
-        Bitboard sq_file_bb = file_bb(s);
-        Bitboard sq_rank_bb = rank_bb(s);
+        Bitboard sq_file_bb = sq_file_bb_array[i];
+        Bitboard sq_rank_bb = sq_rank_bb_array[i];
         Bitboard sq_bb = sq_file_bb & sq_rank_bb;
         
         Bitboard pawnAttacksBB = pawn_attacks_bb<Us>(sq_bb);
@@ -144,6 +160,7 @@ namespace {
         // Score this pawn
         if (support | phalanx)
         {
+            Square s = pl[i];
             Rank r = relative_rank(Us, s);
         
             int v =  Connected[r] * (2 + bool(phalanx) - bool(opposed))
