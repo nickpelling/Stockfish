@@ -148,7 +148,7 @@ namespace {
                   && (stoppers & (leverPush | blocked));
 
         // Compute additional span if pawn is not backward nor blocked
-        attacksSpan_output_array[i] = (!backward && !blocked) ? pawn_attack_span(Us, sq_file_bb, sq_rank_bb) : Bitboard(0);
+        attacksSpan_output_array[i] = bool(!backward && !blocked) * pawn_attack_span(Us, sq_file_bb, sq_rank_bb);
 
         numPhalanx   = bool(phalanx & westBB)   + bool(phalanx & eastBB);
         numLeverPush = bool(leverPush & westBB) + bool(leverPush & eastBB);
@@ -166,9 +166,9 @@ namespace {
 
         // Passed pawns will be properly scored later in evaluation when we have
         // full attack info.
-        passed_output_array[i] = (passed) ? sq_bb : Bitboard(0);
+        passed_output_array[i] = bool(passed) * sq_bb;
 
-        v1_output_array[i] = (support | phalanx) ? (2 + bool(phalanx) - bool(opposed)) : 0;
+        v1_output_array[i] = bool(support | phalanx) * (2 + bool(phalanx) - bool(opposed));
         
         numSupport = bool(support & eastBB) + bool(support & westBB);
         v2_output_array[i] = 21 * numSupport;
