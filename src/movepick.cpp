@@ -151,7 +151,7 @@ Move MovePicker::select(Pred filter) {
 /// returns a new pseudo legal move every time it is called until there are no more
 /// moves left, picking the move with the highest score from a list of generated moves.
 Move MovePicker::next_move(bool skipQuiets) {
-
+bool enPassantFound;
 top:
   switch (stage) {
 
@@ -166,7 +166,7 @@ top:
   case PROBCUT_INIT:
   case QCAPTURE_INIT:
       cur = endBadCaptures = moves;
-      endMoves = generate<CAPTURES>(pos, cur);
+      endMoves = generate<CAPTURES>(pos, cur, enPassantFound);
 
       score<CAPTURES>();
       ++stage;
@@ -203,7 +203,7 @@ top:
       if (!skipQuiets)
       {
           cur = endBadCaptures;
-          endMoves = generate<QUIETS>(pos, cur);
+          endMoves = generate<QUIETS>(pos, cur, enPassantFound);
 
           score<QUIETS>();
           partial_insertion_sort(cur, endMoves, -3000 * depth);
@@ -231,7 +231,7 @@ top:
 
   case EVASION_INIT:
       cur = moves;
-      endMoves = generate<EVASIONS>(pos, cur);
+      endMoves = generate<EVASIONS>(pos, cur, enPassantFound);
 
       score<EVASIONS>();
       ++stage;
@@ -257,7 +257,7 @@ top:
 
   case QCHECK_INIT:
       cur = moves;
-      endMoves = generate<QUIET_CHECKS>(pos, cur);
+      endMoves = generate<QUIET_CHECKS>(pos, cur, enPassantFound);
 
       ++stage;
       /* fallthrough */

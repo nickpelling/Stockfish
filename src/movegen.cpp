@@ -50,7 +50,7 @@ namespace {
 
 
   template<Color Us, GenType Type>
-  ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard target) {
+  ExtMove* generate_pawn_moves(const Position& pos, ExtMove* moveList, Bitboard target, bool &enPassantFound) {
 
     // Compute some compile time parameters relative to the white side
     constexpr Color     Them     = (Us == WHITE ? BLACK      : WHITE);
@@ -175,7 +175,10 @@ namespace {
             assert(b1);
 
             while (b1)
+            {
                 *moveList++ = make<ENPASSANT>(pop_lsb(&b1), pos.ep_square());
+                enPassantFound = true;
+            }
         }
     }
 
@@ -217,13 +220,13 @@ namespace {
 
 
   template<Color Us, GenType Type>
-  ExtMove* generate_all(const Position& pos, ExtMove* moveList, Bitboard target) {
+  ExtMove* generate_all(const Position& pos, ExtMove* moveList, Bitboard target, bool &enPassantFound) {
 
     constexpr CastlingRights OO  = Us & KING_SIDE;
     constexpr CastlingRights OOO = Us & QUEEN_SIDE;
     constexpr bool Checks = Type == QUIET_CHECKS; // Reduce template instantations
 
-    moveList = generate_pawn_moves<Us, Type>(pos, moveList, target);
+    moveList = generate_pawn_moves<Us, Type>(pos, moveList, target, enPassantFound);
     moveList = generate_moves<KNIGHT, Checks>(pos, moveList, Us, target);
     moveList = generate_moves<BISHOP, Checks>(pos, moveList, Us, target);
     moveList = generate_moves<  ROOK, Checks>(pos, moveList, Us, target);
@@ -259,7 +262,7 @@ namespace {
 /// Returns a pointer to the end of the move list.
 
 template<GenType Type>
-ExtMove* generate(const Position& pos, ExtMove* moveList) {
+ExtMove* generate(const Position& pos, ExtMove* moveList, bool &enPassantFound) {
 
   assert(Type == CAPTURES || Type == QUIETS || Type == NON_EVASIONS);
   assert(!pos.checkers());
@@ -270,20 +273,20 @@ ExtMove* generate(const Position& pos, ExtMove* moveList) {
                    : Type == QUIETS       ? ~pos.pieces()
                    : Type == NON_EVASIONS ? ~pos.pieces(us) : 0;
 
-  return us == WHITE ? generate_all<WHITE, Type>(pos, moveList, target)
-                     : generate_all<BLACK, Type>(pos, moveList, target);
+  return us == WHITE ? generate_all<WHITE, Type>(pos, moveList, target, enPassantFound)
+                     : generate_all<BLACK, Type>(pos, moveList, target, enPassantFound);
 }
 
 // Explicit template instantiations
-template ExtMove* generate<CAPTURES>(const Position&, ExtMove*);
-template ExtMove* generate<QUIETS>(const Position&, ExtMove*);
-template ExtMove* generate<NON_EVASIONS>(const Position&, ExtMove*);
+template ExtMove* generate<CAPTURES>(const Position&, ExtMove*, bool &enPassantFound);
+template ExtMove* generate<QUIETS>(const Position&, ExtMove*, bool &enPassantFound);
+template ExtMove* generate<NON_EVASIONS>(const Position&, ExtMove*, bool &enPassantFound);
 
 
 /// generate<QUIET_CHECKS> generates all pseudo-legal non-captures and knight
 /// underpromotions that give check. Returns a pointer to the end of the move list.
 template<>
-ExtMove* generate<QUIET_CHECKS>(const Position& pos, ExtMove* moveList) {
+ExtMove* generate<QUIET_CHECKS>(const Position& pos, ExtMove* moveList, bool &enPassantFound) {
 
   assert(!pos.checkers());
 
@@ -307,15 +310,15 @@ ExtMove* generate<QUIET_CHECKS>(const Position& pos, ExtMove* moveList) {
          *moveList++ = make_move(from, pop_lsb(&b));
   }
 
-  return us == WHITE ? generate_all<WHITE, QUIET_CHECKS>(pos, moveList, ~pos.pieces())
-                     : generate_all<BLACK, QUIET_CHECKS>(pos, moveList, ~pos.pieces());
+  return us == WHITE ? generate_all<WHITE, QUIET_CHECKS>(pos, moveList, ~pos.pieces(), enPassantFound)
+                     : generate_all<BLACK, QUIET_CHECKS>(pos, moveList, ~pos.pieces(), enPassantFound);
 }
 
 
 /// generate<EVASIONS> generates all pseudo-legal check evasions when the side
 /// to move is in check. Returns a pointer to the end of the move list.
 template<>
-ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
+ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList, bool &enPassantFound) {
 
   assert(pos.checkers());
 
@@ -345,29 +348,41 @@ ExtMove* generate<EVASIONS>(const Position& pos, ExtMove* moveList) {
   Square checksq = lsb(pos.checkers());
   Bitboard target = between_bb(checksq, ksq) | checksq;
 
-  return us == WHITE ? generate_all<WHITE, EVASIONS>(pos, moveList, target)
-                     : generate_all<BLACK, EVASIONS>(pos, moveList, target);
+  return us == WHITE ? generate_all<WHITE, EVASIONS>(pos, moveList, target, enPassantFound)
+                     : generate_all<BLACK, EVASIONS>(pos, moveList, target, enPassantFound);
 }
 
 
 /// generate<LEGAL> generates all the legal moves in the given position
 
 template<>
-ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList) {
+ExtMove* generate<LEGAL>(const Position& pos, ExtMove* moveList, bool &enPassantFound) {
 
   Color us = pos.side_to_move();
   Bitboard pinned = pos.blockers_for_king(us) & pos.pieces(us);
   Square ksq = pos.square<KING>(us);
   ExtMove* cur = moveList;
 
-  moveList = pos.checkers() ? generate<EVASIONS    >(pos, moveList)
-                            : generate<NON_EVASIONS>(pos, moveList);
-  while (cur != moveList)
-      if (   (pinned || from_sq(*cur) == ksq || type_of(*cur) == ENPASSANT)
-          && !pos.legal(*cur))
+  enPassantFound = false;
+  moveList = pos.checkers() ? generate<EVASIONS    >(pos, moveList, enPassantFound)
+                            : generate<NON_EVASIONS>(pos, moveList, enPassantFound);
+                            
+  if (pinned || enPassantFound)  // If rare cases, check every move for legality
+  {
+    while (cur != moveList)
+      if (!pos.legal(*cur))
           *cur = (--moveList)->move;
       else
           ++cur;
+  }
+  else // Otherwise only check king moves for legality
+  {
+    while (cur != moveList)
+      if ((from_sq(*cur) == ksq) && !pos.legal(*cur))
+          *cur = (--moveList)->move;
+      else
+          ++cur;
+  }
 
   return moveList;
 }

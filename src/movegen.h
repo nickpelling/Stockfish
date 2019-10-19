@@ -53,23 +53,24 @@ inline bool operator<(const ExtMove& f, const ExtMove& s) {
 }
 
 template<GenType>
-ExtMove* generate(const Position& pos, ExtMove* moveList);
+ExtMove* generate(const Position& pos, ExtMove* moveList, bool& enPassantFound);
 
 /// The MoveList struct is a simple wrapper around generate(). It sometimes comes
 /// in handy to use this class instead of the low level generate() function.
 template<GenType T>
 struct MoveList {
 
-  explicit MoveList(const Position& pos) : last(generate<T>(pos, moveList)) {}
+  explicit MoveList(const Position& pos) : last(generate<T>(pos, moveList, enPassantFound)) {}
   const ExtMove* begin() const { return moveList; }
   const ExtMove* end() const { return last; }
   size_t size() const { return last - moveList; }
   bool contains(Move move) const {
     return std::find(begin(), end(), move) != end();
-  }
+}
 
 private:
   ExtMove moveList[MAX_MOVES], *last;
+  bool enPassantFound;
 };
 
 #endif // #ifndef MOVEGEN_H_INCLUDED
